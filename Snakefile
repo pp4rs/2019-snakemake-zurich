@@ -12,25 +12,27 @@ configfile: "config.yaml"
 # --- Iterable Lists --- #
 
 DATA_SUBSETS = ["nonoil", "intermediate", "oecd"]
-
+MODELS = ["solow", "aug_solow"]
 # --- Build Rules --- #
 
 rule all:
     input:
         models = expand(config["out_analysis"] +
-                    "solow_estimates_{iSubset}.rds",
-                     iSubset = DATA_SUBSETS)
+                    "{iModel}_estimates_{iSubset}.rds",
+                     iSubset = DATA_SUBSETS,
+                     iModel = MODELS)
 
 rule solow_model:
     input:
         script = config["src_analysis"] + "estimate_ols_model.R",
         data   = config["out_data"] + "mrw_complete.csv",
-        model  = config["src_model_specs"] + "model_solow.json",
+        model  = config["src_model_specs"] + "model_{iModel}.json",
         subset = config["src_data_specs"] + "subset_{iSubset}.json"
     output:
-        estimates = Path(config["out_analysis"] + "solow_estimates_{iSubset}.rds")
+        estimates = Path(config["out_analysis"] +
+                        "{iModel}_estimates_{iSubset}.rds")
     log:
-        config["log"] + "estimate_ols_model_{iSubset}.Rout"
+        config["log"] + "model_{iModel}_ols_{iSubset}.Rout"
     shell:
         "Rscript {input.script} \
             --data {input.data} \
