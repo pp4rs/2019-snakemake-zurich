@@ -11,63 +11,46 @@ configfile: "config.yaml"
 
 # --- Iterable Lists --- #
 
-DATA_SUBSET = glob_wildcards(config["src_data_specs"] + "{iFile}.json").iFile
+DATA_SUBSET = glob_wildcards(config["src_data_specs"] +
+                "{iFile}.json").iFile
 DATA_SUBSET = list(filter(lambda x: x.startswith("subset"), DATA_SUBSET))
-MODELS = glob_wildcards(config["src_model_specs"] + "{iFile}.json").iFile
-FIGS = glob_wildcards(config["src_figures"] + "{iFile}.R").iFile
-TABLES = ["tab01_textbook_solow", "tab02_augment_solow"]
+MODELS      = glob_wildcards(config["src_model_specs"] +
+                "{iFile}.json").iFile
+FIGS        = glob_wildcards(config["src_figures"] +
+                    "{iFile}.R").iFile
+TABLES      = ["tab01_textbook_solow", "tab02_augment_solow"]
+
 # --- Build Rules --- #
 
 rule all:
     input:
         figures = expand(config["out_figures"] + "{iFigure}.pdf",
                         iFigure = FIGS),
-        tab01 = config["out_tables"] + "tab01_textbook_solow.tex"
-
-# rule tab01:
-#     input:
-#         script = config["src_tables"] + "tab01_textbook_solow.R",
-#         estimates = expand(config["out_analysis"] +
-#                     "{iModel}_estimates_{iSubset}.rds",
-#                      iSubset = DATA_SUBSETS,
-#                      iModel = MODELS)
-#     output:
-#         tex = config["out_tables"] + "tab01_textbook_solow.tex"
-#     params:
-#         filepath = config["out_analysis"],
-#         model_exp = "model_solow*.rds"
-#     log:
-#         config["log"] + "tab01_textbook_solow.Rout"
-#     shell:
-#         "Rscript {input.script} \
-#             --filepath {params.filepath} \
-#             --models {params.model_exp} \
-#             --out {output.tex}"
-rule textbook_solow:
-    input:
-        script = config["src_tables"] + "tab01_textbook_solow.R",
         models = expand(config["out_analysis"] +
-                             "{iModel}_estimates_{iSubset}.rds",
+                            "{iModel}_ols_{iSubset}.rds",
                               iSubset = DATA_SUBSET,
                               iModel = MODELS),
-    params:
-        filepath   = config["out_analysis"],
-        model_expr = "model_solow*.rds"
+        tab01 = config["out_tables"] + "tab01_textbook_solow.tex"
+
+rule tab01:
+    input:
+        script = config["src_tables"] + "tab01_textbook_solow.R",
+        estimates = expand(config["out_analysis"] +
+                    "{iModel}_ols_{iSubset}.rds",
+                     iSubset = DATA_SUBSET,
+                     iModel = MODELS)
     output:
-        table = config["out_tables"] + "tab01_textbook_solow.tex"
+        tex = config["out_tables"] + "tab01_textbook_solow.tex"
+    params:
+        filepath = config["out_analysis"],
+        model_exp = "model_solow*.rds"
     log:
         config["log"] + "tab01_textbook_solow.Rout"
     shell:
         "Rscript {input.script} \
             --filepath {params.filepath} \
-            --models {params.model_expr} \
-            --out {output.table} \
-            > {log} 2>&1"
-
-
-
-
-
+            --models {params.model_exp} \
+            --out {output.tex} > {log} {LOG_ALL}"
 
 rule make_figs:
     input:
@@ -82,33 +65,25 @@ rule make_figs:
         "Rscript {input.script} \
             --data {input.data} \
             --subset {input.subset} \
-            --out {output.fig}"
+            --out {output.fig} > {log} {LOG_ALL}"
 
 rule solow_model:
     input:
         script = config["src_analysis"] + "estimate_ols_model.R",
         data   = config["out_data"] + "mrw_complete.csv",
         model  = config["src_model_specs"] + "{iModel}.json",
-        subset = config["src_data_specs"] + "{iSubset}.json"
+        subset = config["src_data_specs"]  + "{iSubset}.json"
     output:
-        estimates = Path(config["out_analysis"] +
-                        "{iModel}_estimates_{iSubset}.rds")
+        model_est = config["out_analysis"] + "{iModel}_ols_{iSubset}.rds"
     log:
-        config["log"] + "model_{iModel}_ols_{iSubset}.Rout"
+        config["log"] + "analysis/{iModel}_ols_{iSubset}.Rout"
     shell:
         "Rscript {input.script} \
             --data {input.data} \
             --model {input.model} \
             --subset {input.subset} \
-            --out {output.estimates} > {log} {LOG_ALL}"
-
-
-
-
-
-
-
-
+            --out {output.model_est} \
+            > {log} 2>&1"
 
 rule rename_vars:
     input:
@@ -147,3 +122,9 @@ rule clean_windows:
         "powershell.exe -command \" Remove-Item '.\out'  \
             -include *.csv \
             -recurse\""
+
+rule packrat_init:
+    input:
+        config["src_lib"] + "init_packrat.R"
+    shell:
+        "Rscript {input}"
