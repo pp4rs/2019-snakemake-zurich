@@ -122,9 +122,3 @@ rule clean_windows:
         "powershell.exe -command \" Remove-Item '.\out'  \
             -include *.csv \
             -recurse\""
-
-rule packrat_init:
-    input:
-        config["src_lib"] + "init_packrat.R"
-    shell:
-        "Rscript {input}"
